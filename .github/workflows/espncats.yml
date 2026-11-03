@@ -1,0 +1,77 @@
+name: espncats
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  espncats:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      IMAGE: ghcr.io/avinsonmassif/mcp-gateway-espncats
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Read pinned versions
+        id: versions
+        run: |
+          python=$(sed -n 's/^ARG PYTHON_VERSION=//p' espncats/Dockerfile)
+          espn=$(sed -n 's/^espn-api==//p' espncats/requirements.txt)
+          mcp=$(sed -n 's/^mcp==//p' espncats/requirements.txt)
+          test -n "$python" && test -n "$espn" && test -n "$mcp"
+          echo "python=${python}" >> "$GITHUB_OUTPUT"
+          echo "tag=${espn}-mcp${mcp}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ steps.versions.outputs.python }}
+
+      - name: Offline test
+        run: |
+          pip install --no-cache-dir -r espncats/requirements.txt
+          python espncats/test/test_espn_cats.py
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.versions.outputs.tag }},enable={{is_default_branch}}
+            type=ref,event=pr
+          labels: |
+            org.opencontainers.image.title=mcp-gateway-espncats
+            org.opencontainers.image.description=Read-only ESPN fantasy basketball category MCP server over Streamable HTTP
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build (and push from main)
+        uses: docker/build-push-action@v7
+        with:
+          context: espncats
+          push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=espncats
+          cache-to: type=gha,scope=espncats,mode=max

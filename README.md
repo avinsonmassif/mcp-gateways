@@ -1,18 +1,19 @@
 # mcp-gateways
 
-Container images that serve MCP servers over Streamable HTTP, with pinned versions. Stdio-only servers run behind [supergateway](https://github.com/supercorp-ai/supergateway); servers with their own HTTP transport run it directly. One folder per server.
+Container images that serve MCP servers over Streamable HTTP, with pinned versions. Stdio-only servers run behind [supergateway](https://github.com/supercorp-ai/supergateway); servers with their own HTTP transport run it directly. One folder per server; `espncats` also holds the server's own code.
 
 | Folder | Image | MCP server |
 | --- | --- | --- |
 | [`toggl`](toggl/) | `ghcr.io/avinsonmassif/mcp-gateway-toggl` | [`@togglhq/mcp`](https://www.npmjs.com/package/@togglhq/mcp) (Toggl 2.0) |
 | [`pushover`](pushover/) | `ghcr.io/avinsonmassif/mcp-gateway-pushover` | [`pushover-mcp`](https://www.npmjs.com/package/pushover-mcp) |
+| [`espncats`](espncats/) | `ghcr.io/avinsonmassif/mcp-gateway-espncats` | `espn-cats` (in this repo), read-only ESPN fantasy basketball category analysis on [`espn-api`](https://github.com/cwendt94/espn-api) |
 
 ## Versions and updates
 
-Each Dockerfile pins its base image and npm packages as `ARG ..._VERSION` lines with a `# renovate:` comment. [Renovate](https://docs.renovatebot.com/) opens a pull request for each new upstream release. Pull requests build but do not publish; merging to `main` builds and pushes:
+Each Dockerfile pins its base image and npm packages as `ARG ..._VERSION` lines with a `# renovate:` comment; Python packages are pinned in `requirements.txt`. [Renovate](https://docs.renovatebot.com/) opens a pull request for each new upstream release. Pull requests build but do not publish; merging to `main` builds and pushes:
 
 - `:latest`
-- a version tag, useful for pinning or rolling back: for `toggl` e.g. `1.12.6-sg4.2.1` (`@togglhq/mcp` version, then supergateway version), for `pushover` the `pushover-mcp` version, e.g. `2.0.0`
+- a version tag, useful for pinning or rolling back: for `toggl` e.g. `1.12.6-sg4.2.1` (`@togglhq/mcp` version, then supergateway version), for `pushover` the `pushover-mcp` version, e.g. `2.0.0`, for `espncats` the `espn-api` and `mcp` versions and the commit, e.g. `1.0.1-mcp1.30.0-abc1234`
 
 ## toggl
 
@@ -77,4 +78,43 @@ services:
       - PUSHOVER_TOKEN=${PUSHOVER_TOKEN}
       - PUSHOVER_USER=${PUSHOVER_USER}
       - PUSHOVER_MCP_AUTH_TOKEN=${PUSHOVER_MCP_AUTH_TOKEN}
+```
+
+## espncats
+
+A small, read-only MCP server for ESPN fantasy basketball leagues scored by category (9-cat, H2H Most Categories). It covers what general ESPN fantasy servers lack: per-category matchup scores, per-category player averages, league category ranks and games per week. It never writes to ESPN. Built with FastMCP from the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), on its own Streamable HTTP transport on port 8000:
+
+- MCP endpoint: `http://<host>:8000/mcp`
+
+Tools: `cats_matchup`, `cats_player_stats`, `cats_league_profile`, `cats_games_this_week`, `cats_refresh`.
+
+Required environment variables:
+
+| Variable | Notes |
+| --- | --- |
+| `ESPN_S2`, `ESPN_SWID` | ESPN session cookies from a signed-in browser (`SWID` includes the curly braces) |
+| `ESPN_LEAGUE_ID` | From the league URL (`leagueId=...`) |
+| `ESPN_SEASON` | Season end year, e.g. `2027` for 2026-27 |
+| `ESPN_TEAM_ID` | Your team, used as the default "my team" |
+
+Optional: `ESPN_CACHE_SECONDS` (league cache lifetime, default `300`) and `TZ` (IANA timezone such as `Europe/London` for the `first_tip` times in `cats_games_this_week`, default `UTC`; an unknown zone also falls back to UTC).
+
+The image sets `MCP_TRANSPORT=streamable-http`, `MCP_HOST=0.0.0.0` and `MCP_PORT=8000`. Run outside the image, `app/espn_cats.py` defaults to stdio. CI runs the offline test (`test/test_espn_cats.py`, synthetic ESPN data, no network) before building.
+
+The endpoint has no authentication of its own. Put it behind an authenticating proxy or keep it on a private network.
+
+Example:
+
+```yaml
+services:
+  mcp-gateway-espncats:
+    image: ghcr.io/avinsonmassif/mcp-gateway-espncats:latest
+    restart: unless-stopped
+    environment:
+      - ESPN_S2=${ESPN_S2}
+      - ESPN_SWID=${ESPN_SWID}
+      - ESPN_LEAGUE_ID=${ESPN_LEAGUE_ID}
+      - ESPN_SEASON=2027
+      - ESPN_TEAM_ID=${ESPN_TEAM_ID}
+      - TZ=Europe/London
 ```
