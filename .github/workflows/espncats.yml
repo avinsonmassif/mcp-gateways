@@ -32,7 +32,7 @@ jobs:
           echo "tag=${espn}-mcp${mcp}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ steps.versions.outputs.python }}
 
