@@ -1,5 +1,6 @@
 """Offline test: real espn-api parsing on synthetic ESPN JSON, no network."""
 import json
+import logging
 import os
 import sys
 
@@ -147,6 +148,17 @@ def test_all():
     assert den["games"] == 3 and den["remaining"] == 2
 
     assert ec.cats_refresh()["teams"] == 2
+
+    # /healthz is served on the Streamable HTTP app and opens no MCP session
+    # (no lifespan, so the session manager is never started).
+    from starlette.testclient import TestClient
+    r = TestClient(ec.mcp.streamable_http_app()).get("/healthz")
+    assert r.status_code == 200 and r.text == "ok"
+    access = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, "%s - \"%s %s HTTP/%s\" %d",
+                               ("127.0.0.1:1", "GET", "/healthz", "1.1", 200), None)
+    assert not ec._SkipHealthz().filter(access)
+    access.args = ("127.0.0.1:1", "POST", "/mcp", "1.1", 200)
+    assert ec._SkipHealthz().filter(access)
     print(json.dumps(g["days"], indent=1))
     print("ALL OK")
 
