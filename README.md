@@ -7,13 +7,14 @@ Container images that serve MCP servers over Streamable HTTP, with pinned versio
 | [`toggl`](toggl/) | `ghcr.io/avinsonmassif/mcp-gateway-toggl` | [`@togglhq/mcp`](https://www.npmjs.com/package/@togglhq/mcp) (Toggl 2.0) |
 | [`pushover`](pushover/) | `ghcr.io/avinsonmassif/mcp-gateway-pushover` | [`pushover-mcp`](https://www.npmjs.com/package/pushover-mcp) |
 | [`espncats`](espncats/) | `ghcr.io/avinsonmassif/mcp-gateway-espncats` | `espn-cats` (in this repo), read-only ESPN fantasy basketball category analysis on [`espn-api`](https://github.com/cwendt94/espn-api) |
+| [`espn`](espn/) | `ghcr.io/avinsonmassif/mcp-gateway-espn` | [`espn-fantasy-mcp`](https://github.com/tlo1216/espn-fantasy-mcp), built from the [avinsonmassif fork](https://github.com/avinsonmassif/espn-fantasy-mcp) at a pinned commit |
 
 ## Versions and updates
 
-Each Dockerfile pins its base image and npm packages as `ARG ..._VERSION` lines with a `# renovate:` comment; Python packages are pinned in `requirements.txt`. [Renovate](https://docs.renovatebot.com/) opens a pull request for each new upstream release. Pull requests build but do not publish; merging to `main` builds and pushes:
+Each Dockerfile pins its base image and npm packages as `ARG ..._VERSION` lines with a `# renovate:` comment; Python packages are pinned in `requirements.txt`. `espn` is not on npm, so its git commit is pinned as `ARG ESPN_MCP_REF` and bumped by hand. [Renovate](https://docs.renovatebot.com/) opens a pull request for each new upstream release. Pull requests build but do not publish; merging to `main` builds and pushes:
 
 - `:latest`
-- a version tag, useful for pinning or rolling back: for `toggl` e.g. `1.12.6-sg4.2.1` (`@togglhq/mcp` version, then supergateway version), for `pushover` the `pushover-mcp` version, e.g. `2.0.0`, for `espncats` the `espn-api` and `mcp` versions and the commit, e.g. `1.0.1-mcp1.30.0-abc1234`
+- a version tag, useful for pinning or rolling back: for `toggl` e.g. `1.12.6-sg4.2.1` (`@togglhq/mcp` version, then supergateway version), for `pushover` the `pushover-mcp` version, e.g. `2.0.0`, for `espncats` the `espn-api` and `mcp` versions and the commit, e.g. `1.0.1-mcp1.30.0-abc1234`, for `espn` the server commit, then supergateway version, e.g. `75ec998-sg4.2.1`
 
 ## toggl
 
@@ -117,4 +118,46 @@ services:
       - ESPN_SEASON=2027
       - ESPN_TEAM_ID=${ESPN_TEAM_ID}
       - TZ=Europe/London
+```
+
+## espn
+
+Serves [`espn-fantasy-mcp`](https://github.com/tlo1216/espn-fantasy-mcp) (ESPN fantasy football, basketball and baseball: leagues, rosters, free agents, matchups, transactions, and optional roster writes) behind supergateway on port 8000:
+
+- MCP endpoint: `http://<host>:8000/mcp`
+- Health: `http://<host>:8000/healthz`
+
+It is built from the [avinsonmassif fork](https://github.com/avinsonmassif/espn-fantasy-mcp), which adds a fix for leagues with no trade deadline on top of upstream.
+
+Required environment variables:
+
+| Variable | Notes |
+| --- | --- |
+| `ESPN_S2`, `ESPN_SWID` | ESPN session cookies from a signed-in browser (`SWID` includes the curly braces) |
+| `ESPN_SPORT` | `ffl`, `fba` or `flb` |
+| `ESPN_SEASON` | Season year |
+| `ESPN_LEAGUE_ID` | Default league |
+
+Optional: `ESPN_TEAM_ID` (default team) and `WRITES_ENABLED` (`true` allows lineup, waiver and IR writes; default `false`). Write tools default to a dry run either way. Writes that are sent are logged to `logs/writes.jsonl` under the working directory, `/data`, so mount a volume there to keep the log.
+
+The gateway runs in stateful mode (one server process per client session), as for `toggl`.
+
+The endpoint has no authentication of its own. Put it behind an authenticating proxy or keep it on a private network.
+
+Example:
+
+```yaml
+services:
+  mcp-gateway-espn:
+    image: ghcr.io/avinsonmassif/mcp-gateway-espn:latest
+    restart: unless-stopped
+    environment:
+      - ESPN_S2=${ESPN_S2}
+      - ESPN_SWID=${ESPN_SWID}
+      - ESPN_SPORT=fba
+      - ESPN_SEASON=2027
+      - ESPN_LEAGUE_ID=${ESPN_LEAGUE_ID}
+      - ESPN_TEAM_ID=${ESPN_TEAM_ID}
+    volumes:
+      - ./data:/data
 ```
