@@ -1,0 +1,64 @@
+name: pushover
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  pushover:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      IMAGE: ghcr.io/avinsonmassif/mcp-gateway-pushover
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Read pinned versions
+        id: versions
+        run: |
+          pushover=$(sed -n 's/^ARG PUSHOVER_MCP_VERSION=//p' pushover/Dockerfile)
+          test -n "$pushover"
+          echo "tag=${pushover}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.versions.outputs.tag }},enable={{is_default_branch}}
+            type=ref,event=pr
+          labels: |
+            org.opencontainers.image.title=mcp-gateway-pushover
+            org.opencontainers.image.description=Pushover MCP server (pushover-mcp) over its native Streamable HTTP transport
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (and push from main)
+        uses: docker/build-push-action@v7
+        with:
+          context: pushover
+          push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=pushover
+          cache-to: type=gha,scope=pushover,mode=max
