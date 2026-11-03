@@ -54,7 +54,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build (and push from main)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: toggl
           push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
