@@ -4,7 +4,7 @@
 # as pull requests.
 
 # renovate: datasource=docker depName=python versioning=docker
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.15
 FROM python:${PYTHON_VERSION}-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
