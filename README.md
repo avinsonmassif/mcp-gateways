@@ -34,8 +34,6 @@ The gateway runs in stateful mode (one `toggl-mcp` process per client session), 
 
 The endpoint has no authentication of its own. Put it behind an authenticating proxy or keep it on a private network.
 
-The image patches the server's API-token startup check to probe `/projects` instead of `/custom-fields`, which returns 402 on plans without custom fields. The build fails if the patch no longer applies.
-
 Example:
 
 ```yaml
