@@ -13,14 +13,6 @@ ARG SUPERGATEWAY_VERSION=4.2.1
 RUN npm install -g @togglhq/mcp@${TOGGL_MCP_VERSION} supergateway@${SUPERGATEWAY_VERSION} \
  && npm cache clean --force
 
-# The API-token startup check probes the custom-fields endpoint, which returns
-# 402 (feature_not_available) on plans without custom fields, so the server
-# starts unauthenticated. Probe the projects endpoint instead. Fails the build
-# if the upstream code changes and the patch no longer applies.
-RUN f=$(grep -rlF '/custom-fields`, token' /usr/local/lib/node_modules/@togglhq/mcp/build/) \
- && sed -i 's#/custom-fields`, token#/projects`, token#' $f \
- && grep -qF '/projects`, token' $f
-
 # Opt out of the package's usage analytics and error reports by default.
 ENV TOGGL_PRODUCT_ANALYTICS=off \
     TOGGL_SENTRY=off
