@@ -27,12 +27,6 @@
       "description": "Automerge minor, patch and digest updates once CI passes",
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true
-    },
-    {
-      "description": "Never automerge the Node base image",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["node"],
-      "automerge": false
     }
   ]
 }
