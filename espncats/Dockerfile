@@ -16,8 +16,7 @@ COPY app/espn_cats.py /app/espn_cats.py
 
 USER app
 EXPOSE 8000
-# No health endpoint: any HTTP answer from /mcp (a plain GET is refused) means
-# the server is up.
-HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request as u, urllib.error as e; exec('try: u.urlopen(\"http://127.0.0.1:8000/mcp\", timeout=4)\nexcept e.HTTPError: pass')"
+# /healthz answers 200 without opening an MCP session (a GET on /mcp would).
+HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"
 
 ENTRYPOINT ["python", "/app/espn_cats.py"]

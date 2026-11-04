@@ -16,11 +16,13 @@ Environment (same names as espn-fantasy-mcp, so one shared env file works):
 
 Transport (defaults suit local stdio use):
   MCP_TRANSPORT        stdio (default) or streamable-http
-  MCP_HOST, MCP_PORT   HTTP listen address (default 127.0.0.1:8000, path /mcp)
+  MCP_HOST, MCP_PORT   HTTP listen address (default 127.0.0.1:8000, path /mcp,
+                       liveness probe at /healthz)
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
@@ -31,6 +33,8 @@ from espn_api.basketball import League
 from espn_api.requests.espn_requests import ESPNAccessDenied
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 CATS = ["FG%", "FT%", "3PM", "REB", "AST", "STL", "BLK", "TO", "PTS"]
 LOWER_IS_BETTER = {"TO"}
@@ -61,6 +65,25 @@ mcp = FastMCP(
     host=os.environ.get("MCP_HOST", "127.0.0.1"),
     port=int(os.environ.get("MCP_PORT", "8000")),
 )
+
+
+
+@mcp.custom_route("/healthz", methods=["GET"])
+async def healthz(request: Request) -> PlainTextResponse:
+    """Liveness probe for the container healthcheck. Unlike /mcp it opens no
+    MCP session."""
+    return PlainTextResponse("ok")
+
+
+class _SkipHealthz(logging.Filter):
+    """Keeps the healthcheck's GET /healthz out of the uvicorn access log."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) > 2 and args[2] == "/healthz")
+
+
+logging.getLogger("uvicorn.access").addFilter(_SkipHealthz())
 
 _lock = threading.Lock()
 _cache: dict = {"league": None, "at": 0.0}

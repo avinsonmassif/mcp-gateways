@@ -86,6 +86,7 @@ services:
 A small, read-only MCP server for ESPN fantasy basketball leagues scored by category (9-cat, H2H Most Categories). It covers what general ESPN fantasy servers lack: per-category matchup scores, per-category player averages, league category ranks and games per week. It never writes to ESPN. Built with FastMCP from the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), on its own Streamable HTTP transport on port 8000:
 
 - MCP endpoint: `http://<host>:8000/mcp`
+- Health: `http://<host>:8000/healthz` (answers `ok` without opening an MCP session, and is left out of the access log)
 
 Tools: `cats_matchup`, `cats_player_stats`, `cats_league_profile`, `cats_games_this_week`, `cats_refresh`.
 
