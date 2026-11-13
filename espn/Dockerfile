@@ -19,7 +19,7 @@ RUN git clone ${ESPN_MCP_REPO} . \
 
 FROM node:${NODE_VERSION}-alpine
 # renovate: datasource=npm depName=supergateway
-ARG SUPERGATEWAY_VERSION=4.2.1
+ARG SUPERGATEWAY_VERSION=4.2.2
 RUN npm install -g supergateway@${SUPERGATEWAY_VERSION} \
  && npm cache clean --force
 COPY --from=build /app/dist /app/dist
