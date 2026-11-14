@@ -7,7 +7,7 @@ ARG NODE_VERSION=24
 FROM node:${NODE_VERSION}-alpine
 
 # renovate: datasource=npm depName=@togglhq/mcp
-ARG TOGGL_MCP_VERSION=1.13.239
+ARG TOGGL_MCP_VERSION=1.13.244
 # renovate: datasource=npm depName=supergateway
 ARG SUPERGATEWAY_VERSION=4.2.2
 RUN npm install -g @togglhq/mcp@${TOGGL_MCP_VERSION} supergateway@${SUPERGATEWAY_VERSION} \
